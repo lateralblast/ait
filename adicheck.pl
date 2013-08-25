@@ -4,7 +4,7 @@ use strict;
 use Getopt::Std;
 
 # Name:         adicheck.pl
-# Version:      0.0.4
+# Version:      0.0.5
 # Release:      1
 # License:      Open Source 
 # Group:        System
@@ -23,6 +23,8 @@ use Getopt::Std;
 #               Bug fixes
 #               0.0.4 Sun 25 Aug 2013 17:21:52 EST
 #               Code clean up
+#               0.0.5 Mon 26 Aug 2013 07:51:36 EST
+#               Added file permission check
 
 my $script_name=$0;
 my $script_version=`cat $script_name | grep '^# Version' |awk '{print \$3}'`; 
@@ -43,6 +45,7 @@ my $default_realm           = "BLAH.COM";
 my $kdc                     = lc($default_realm);
 my $admin_server            = lc($default_realm);
 my $sssd_file               = "/etc/sssd/sssd.conf";
+my $keytab_file;
 my @krb5_services;
 my $pam_file;
 my @conf_file_entries;
@@ -68,6 +71,7 @@ if ($os_name=~/SunOS/) {
     "other[[:space:]]*session[[:space:]]*sufficient[[:space:]]*pam_unix_session.so.1"
   );
   $krb5_dir          = "/etc/krb5";
+  $keytab_file       = "$krb5_dir/krb5.keytab";
   $krb5_conf_file    = "$krb5_dir/krb5.conf";
   $kdc_conf_file     = "$krb5_dir/kdc.conf";
   $kadm5_keytab_file = "$krb5_dir/kadm5.keytab";
@@ -180,6 +184,7 @@ if ($os_name=~/Linux/) {
     );
   }
   $krb5_dir          = "/etc";
+  $keytab_file       = "$krb5_dir/krb5.keytab";
   $krb5_conf_file    = "$krb5_dir/krb5.conf";
   $kdc_conf_file     = "$krb5_dir/kdc.conf";
   $kadm5_keytab_file = "$krb5_dir/kadm5.keytab";
@@ -267,17 +272,6 @@ sub get_host_info {
   return;
 }
 
-sub sudo_pam_check {
-  my $sudobin=$_[0];
-  my $sudopam=`strings $sudobin |grep pam`;
-  if ($sudopam=~/with\-pam|libpam/) {
-    handle_output("Sudo has PAM support");
-  }
-  else {
-    handle_output("Warning: Sudo does not have PAM support");
-  }
-}
-
 sub check_file_exists {
   my $filename=$_[0];
   if (! -f "$filename") {
@@ -299,19 +293,6 @@ sub check_dir_exists {
   else {
     handle_output("Directory $dirname exists");
     return($dirname);
-  }
-}
-
-sub ace_status_check {
-  my $acestatus="/opt/pam/bin/32bit/acestatus";
-  my $acestatus=check_file_exists($acestatus);
-  my @aceoutput;
-  my $line;
-  if (-f "$acestatus") {
-    @aceoutput=`$acestatus 2>&1`;
-    foreach $line (@aceoutput) {
-      handle_output($line);
-    }
   }
 }
 
@@ -398,6 +379,34 @@ sub check_krb5_services {
   return;
 }
 
+sub check_file_perms {
+  my $check_file=$_[0];
+  my $check_user=$_[1];
+  my $check_perm=$_[2];
+  my $file_mode;
+  my $file_user;
+  $check_file=check_file_exists($check_file);
+  if (-f "$check_file") {
+    $file_mode=(stat($check_file))[2];
+    $file_mode=sprintf("%04o",$file_mode & 07777);
+    $file_user=(stat($check_file))[4];
+    $file_user=getpwuid($file_user);
+    if ($file_mode != $check_perm) {
+      handle_output("Warning: Permission of file $check_file are not $check_perm");
+    }
+    else {
+      handle_output("Permissions on $check_file are correctly set to $check_perm");
+    }
+    if ($file_user != $check_user) {
+      handle_output("Warning: Ownership of file $check_file is not $check_user");
+    }
+    else {
+      handle_output("Ownership of $check_file is correctly set to $check_user");
+    }
+  }
+  return;
+}
+
 sub check_klist {
   if ($os_name=~/SunOS/) {
     system("klist -k");
@@ -427,5 +436,6 @@ sub adi_check {
   }
   check_krb5_services();
   check_klist();
+  check_file_perms($keytab_file,"root","0644");
   return;
 }
