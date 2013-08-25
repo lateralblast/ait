@@ -4,7 +4,7 @@ use strict;
 use Getopt::Std;
 
 # Name:         adicheck.pl
-# Version:      0.0.5
+# Version:      0.0.6
 # Release:      1
 # License:      Open Source 
 # Group:        System
@@ -25,6 +25,8 @@ use Getopt::Std;
 #               Code clean up
 #               0.0.5 Mon 26 Aug 2013 07:51:36 EST
 #               Added file permission check
+#               0.0.6 Mon 26 Aug 2013 08:11:16 EST
+#               Added group permissions check
 
 my $script_name=$0;
 my $script_version=`cat $script_name | grep '^# Version' |awk '{print \$3}'`; 
@@ -382,14 +384,17 @@ sub check_krb5_services {
 sub check_file_perms {
   my $check_file=$_[0];
   my $check_user=$_[1];
-  my $check_perm=$_[2];
+  my $check_group=$_[2];
+  my $check_perm=$_[3];
   my $file_mode;
   my $file_user;
+  my $file_group;
   $check_file=check_file_exists($check_file);
   if (-f "$check_file") {
     $file_mode=(stat($check_file))[2];
     $file_mode=sprintf("%04o",$file_mode & 07777);
     $file_user=(stat($check_file))[4];
+    $file_group=(stat($check_file))[5];
     $file_user=getpwuid($file_user);
     if ($file_mode != $check_perm) {
       handle_output("Warning: Permission of file $check_file are not $check_perm");
@@ -402,6 +407,12 @@ sub check_file_perms {
     }
     else {
       handle_output("Ownership of $check_file is correctly set to $check_user");
+    }
+    if ($file_group != $check_group) {
+      handle_output("Warning: Group ownership of file $check_file is not $check_group");
+    }
+    else {
+      handle_output("Group ownership of $check_file is correctly set to $check_group");
     }
   }
   return;
@@ -436,6 +447,6 @@ sub adi_check {
   }
   check_krb5_services();
   check_klist();
-  check_file_perms($keytab_file,"root","0644");
+  check_file_perms($keytab_file,"root","root","0640");
   return;
 }
