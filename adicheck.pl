@@ -4,7 +4,7 @@ use strict;
 use Getopt::Std;
 
 # Name:         adicheck.pl
-# Version:      0.0.7
+# Version:      0.0.8
 # Release:      1
 # License:      Open Source 
 # Group:        System
@@ -29,6 +29,8 @@ use Getopt::Std;
 #               Added group permissions check
 #               0.0.7 Mon 26 Aug 2013 08:35:11 EST
 #               Fixed permissions check to include directories
+#               0.0.8 Mon 26 Aug 2013 10:20:04 EST
+#               Cleaned up parameter checking
 
 my $script_name=$0;
 my $script_version=`cat $script_name | grep '^# Version' |awk '{print \$3}'`; 
@@ -59,7 +61,7 @@ my %kdc_conf_entries;
 my %sssd_conf_entries;
 my %params;
 my @linux_kdc_conf_entries;
-my $options="Vch";
+my $options="Vchs";
 
 get_host_info();
 
@@ -83,14 +85,14 @@ if ($os_name=~/SunOS/) {
   %krb5_conf_entries = (
     "default_realm"             , "$default_realm",
     "verify_ap_req_nofail"      , "false",
-    "$default_realm"            , "{".
+    "$default_realm"            , "{",
     "kdc"                       , "$kdc",
     "admin_server"              , "$admin_server",
     "$admin_server"             , "$default_realm"
   );
   %kdc_conf_entries = (
     "kdc_ports"                 , "88,750",
-    "$default_realm"            , "{".
+    "$default_realm"            , "{",
     "profile"                   , "$krb5_conf_file",
     "admin_keytab"              , "$kadm5_keytab_file",
     "acl_file"                  , "$kadm5_acl_file",
@@ -261,6 +263,7 @@ sub print_usage {
   print "\n";
   print "-V: Print version information\n";
   print "-h: Print help\n";
+  print "-s: Check server (KDC config)\n";
   print "-c: Check Active Directory (Kerberos) Integration configs\n";
   print "\n";
   return;
@@ -279,11 +282,11 @@ sub get_host_info {
 sub check_file_exists {
   my $filename=$_[0];
   if (! -f "$filename") {
-    handle_output("Warning: File $filename does not exist");
+    handle_output("Warning: File \"$filename\" does not exist");
     return("");
   }
   else {
-    handle_output("File $filename exists");
+    handle_output("File \"$filename\" exists");
     return($filename);
   }
 }
@@ -291,11 +294,11 @@ sub check_file_exists {
 sub check_dir_exists {
   my $dirname=$_[0];
   if (! -d "$dirname") {
-    handle_output("Warning: Directory $dirname does not exist");
+    handle_output("Warning: Directory \"$dirname\" does not exist");
     return("");
   }
   else {
-    handle_output("Directory $dirname exists");
+    handle_output("Directory \"$dirname\" exists");
     return($dirname);
   }
 }
@@ -310,18 +313,18 @@ sub check_file_entries {
     @file_entries=`cat $check_file`;
     foreach $entry (@conf_file_entries) {
       $info=$entry;
-      $info=~s/\[\[\:space\:\]\]/ /g;
+      $info=~s/\[\[\:space\:\]\]\*/ /g;
       if (grep /$entry/, @file_entries) {
-        $line="File $check_file contains $info\n";
+        $line="File $check_file contains $info";
       }
       else {
-        $line="Warning: File $check_file does not contain $info\n";
+        $line="Warning: File \"$check_file\" does not contain \"$info\"";
       }
       handle_output($line);
     }
   }
   else {
-    $line="Warning: File $check_file does not contain $info\n";
+    $line="Warning: File \"$check_file\" does not contain \"$info\"";
     handle_output($line);
   }
   return;
@@ -336,6 +339,8 @@ sub check_conf_file {
   my $hash_value;
   my $line_param;
   my $line_value;
+  my $results_param;
+  my $results_value;
   my %results;
   $conf_file=check_file_exists($conf_file);
   while (($hash_param,$hash_value)=each(%params)) {
@@ -346,19 +351,19 @@ sub check_conf_file {
     foreach $line (@file_info) {
       chomp($line);
       while (($hash_param,$hash_value)=each(%params)) {
-        if ($line=~/^$hash_param/) {
+        if ($line=~/$hash_param/) {
           $results{$hash_param}=1;
           ($line_param,$line_value)=split("=",$line);
           $line_value=~s/ //g;
           if ($line_value!~/^$hash_value/) {
-            handle_output("Parameter $hash_param in $conf_file correctly set to $hash_value");
+            handle_output("Parameter \"$hash_param\" in \"$conf_file\" correctly set to \"$hash_value\"");
           }
         }
       }
     }
-    while (($hash_param,$hash_value)=each(%results)) {
-      if ($hash_value == 0) {
-        handle_output("Warning: File $conf_file does not contain $hash_param = $hash_value");
+    while (($results_param,$results_value)=each(%results)) {
+      if ($results_value == 0) {
+        handle_output("Warning: File \"$conf_file\" does not contain \"$results_param = $results{$results_param}\"");
       }
     }
   }
@@ -374,10 +379,10 @@ sub check_krb5_services {
       $status=`svcs -l $service |grep '^state ' |awk '{print $1}'`;
     }
     if ($status=~/$correct_status/) {
-      handle_output("Service $service is $correct_status");
+      handle_output("Service $service is \"$correct_status\"");
     }
     else {
-      handle_output("Warning: Service $service is $correct_status");
+      handle_output("Warning: Service \"$service\" is \"$correct_status\"");
     }
   }
   return;
@@ -399,22 +404,22 @@ sub check_file_perms {
     $file_group=(stat($check_file))[5];
     $file_user=getpwuid($file_user);
     if ($file_mode != $check_perm) {
-      handle_output("Warning: Permissions on $check_file are not $check_perm");
+      handle_output("Warning: Permissions on \"$check_file\" are not \"$check_perm\"");
     }
     else {
-      handle_output("Permissions on $check_file are correctly set to $check_perm");
+      handle_output("Permissions on \"$check_file\" are correctly set to \"$check_perm\"");
     }
     if ($file_user != $check_user) {
-      handle_output("Warning: Ownership of $check_file is not $check_user");
+      handle_output("Warning: Ownership of \"$check_file\" is not \"$check_user\"");
     }
     else {
-      handle_output("Ownership of $check_file is correctly set to $check_user");
+      handle_output("Ownership of \"$check_file\" is correctly set to \"$check_user\"");
     }
     if ($file_group != $check_group) {
-      handle_output("Warning: Group ownership of $check_file is not $check_group");
+      handle_output("Warning: Group ownership of \"$check_file\" is not \"$check_group\"");
     }
     else {
-      handle_output("Group ownership of $check_file is correctly set to $check_group");
+      handle_output("Group ownership of \"$check_file\" is correctly set to \"$check_group\"");
     }
   }
   return;
@@ -436,8 +441,10 @@ sub adi_check {
   %params=%krb5_conf_entries;
   check_conf_file($krb5_conf_file);
   if ($os_name=~/SunOS/) {
-    %params=%kdc_conf_entries;
-    check_conf_file($kdc_conf_file);
+    if ($option{'s'}) {
+      %params=%kdc_conf_entries;
+      check_conf_file($kdc_conf_file);
+    }
   }
   else {
     @conf_file_entries=@linux_kdc_conf_entries;
@@ -449,6 +456,6 @@ sub adi_check {
   }
   check_krb5_services();
   check_klist();
-  check_file_perms($keytab_file,"root","root","0640");
+  check_file_perms($keytab_file,"root","root","0600");
   return;
 }
