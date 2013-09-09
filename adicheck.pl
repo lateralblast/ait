@@ -4,7 +4,7 @@ use strict;
 use Getopt::Std;
 
 # Name:         adicheck.pl
-# Version:      0.0.8
+# Version:      0.0.9
 # Release:      1
 # License:      Open Source 
 # Group:        System
@@ -31,12 +31,14 @@ use Getopt::Std;
 #               Fixed permissions check to include directories
 #               0.0.8 Mon 26 Aug 2013 10:20:04 EST
 #               Cleaned up parameter checking
+#               0.0.9 Mon  9 Sep 2013 10:12:00 EST
+#               Added fix/install and uninstall capability
 
 my $script_name=$0;
 my $script_version=`cat $script_name | grep '^# Version' |awk '{print \$3}'`; 
 my %option=();
 my $os_name;
-my @pam_entries;
+my @pam_values;
 my $krb5_dir;
 my $krb5_conf_file;
 my $kdc_conf_file;
@@ -54,20 +56,23 @@ my $sssd_file               = "/etc/sssd/sssd.conf";
 my $keytab_file;
 my @krb5_services;
 my $pam_file;
-my @conf_file_entries;
+my @conf_file_values;
 my $os_rel;
-my %krb5_conf_entries;
-my %kdc_conf_entries;
-my %sssd_conf_entries;
+my %krb5_conf_values;
+my @krb5_conf_entries;
+my %kdc_conf_values;
+my @kdc_conf_entries;
+my %sssd_conf_values;
 my %params;
-my @linux_kdc_conf_entries;
-my $options="Vchs";
+my @linux_kdc_conf_values;
+my $options="Vchsfiu";
 
 get_host_info();
 
 if ($os_name=~/SunOS/) {
   $pam_file="/etc/pam.conf";
-  @pam_entries = (
+  # Create an array of correct settings for PAM
+  @pam_values = (
     "other[[:space:]]*auth[[:space:]]*requisite[[:space:]]*pam_authtok_get.so.1",
     "other[[:space:]]*auth[[:space:]]*sufficient[[:space:]]*pam_krb5.so.1",
     "other[[:space:]]*auth[[:space:]]*sufficient[[:space:]]*pam_unix_auth.so.1 try_first_pass",
@@ -82,7 +87,8 @@ if ($os_name=~/SunOS/) {
   $kdc_conf_file     = "$krb5_dir/kdc.conf";
   $kadm5_keytab_file = "$krb5_dir/kadm5.keytab";
   $kadm5_acl_file    = "$krb5_dir/kadm5.acl";
-  %krb5_conf_entries = (
+  # Create a hash of correct values for krb5.conf
+  %krb5_conf_values = (
     "default_realm"             , "$default_realm",
     "verify_ap_req_nofail"      , "false",
     "$default_realm"            , "{",
@@ -90,7 +96,8 @@ if ($os_name=~/SunOS/) {
     "admin_server"              , "$admin_server",
     "$admin_server"             , "$default_realm"
   );
-  %kdc_conf_entries = (
+  # Create a hash of correct values for kdc.conf
+  %kdc_conf_values = (
     "kdc_ports"                 , "88,750",
     "$default_realm"            , "{",
     "profile"                   , "$krb5_conf_file",
@@ -101,6 +108,7 @@ if ($os_name=~/SunOS/) {
     "max_renewable_life"        , "7d 0h 0m 0s",
     "default_principal_flags"   , "+preauth"
   );
+  # Correct state for service
   @krb5_services = (
     "svc:/network/security/ktkt_warn:default,online"
   );
@@ -109,7 +117,8 @@ if ($os_name=~/SunOS/) {
 if ($os_name=~/Linux/) {
   $pam_file="/etc/pam/system-auth-ac";
   if ($os_rel=~/^5/) {
-    @pam_entries = (
+    # Create an array of correct settings for PAM
+    @pam_values = (
       "auth[[:space:]]*required[[:space:]]*pam_env.so",
       "auth[[:space:]]*sufficient[[:space:]]*pam_krb5.so",
       "auth[[:space:]]*sufficient[[:space:]]*pam_unix.so nullok try_first_pass",
@@ -131,7 +140,8 @@ if ($os_name=~/Linux/) {
    );
   }
   if ($os_rel=~/^6/) {
-    @pam_entries = (
+    # Create an array of correct settings for PAM
+    @pam_values = (
       "auth[[:space:]]*required[[:space:]]*pam_env.so",
       "auth[[:space:]]*sufficient[[:space:]]*pam_fprintd.so",
       "auth[[:space:]]*sufficient[[:space:]]*pam_unix.so nullok try_first_pass",
@@ -156,7 +166,7 @@ if ($os_name=~/Linux/) {
     );
   }
   if ($os_rel=~/^6/) {
-    %sssd_conf_entries = (
+    %sssd_conf_values = (
       "config_file_version"       , "2",
       "reconnection_retries"      , "3",
       "sbus_timeout"              , "30",
@@ -195,7 +205,8 @@ if ($os_name=~/Linux/) {
   $kdc_conf_file     = "$krb5_dir/kdc.conf";
   $kadm5_keytab_file = "$krb5_dir/kadm5.keytab";
   $kadm5_acl_file    = "$krb5_dir/kadm5.acl";
-  %krb5_conf_entries = (
+  # Create a hash of correct values for krb5.conf
+  %krb5_conf_values = (
     "default"                   , "FILE:/var/log/krb5libs.log",
     "kdc"                       , "FILE:/var/log/krb5kdc.log",
     "admin_server"              , "FILE:/var/log/kadmind.log",
@@ -211,11 +222,74 @@ if ($os_name=~/Linux/) {
     ".$kdc"                     , "$default_realm",
     "$kdc"                      , "$default_realm"
   );
-  @linux_kdc_conf_entries = (
+  # Create an array for correct values for kdc.conf
+  @linux_kdc_conf_values = (
     "$default_realm",
     "$default_realm"."[[:space:]]*$kdc:88",
     "$default_realm"."[[:space:]]*$kdc:749 admin server",
   ); 
+}
+
+if ($os_name=~/Linux/) {
+  # Create an array of entries for krb5.conf
+  @krb5_conf_entries = (
+    "[logging]",
+    "default = FILE:/var/log/krb5libs.log",
+    "kdc = FILE:/var/log/krb5kdc.log",
+    "admin_server = FILE:/var/log/kadmind.log",
+    "",
+    "[libdefaults]",
+    "default_realm = $default_realm",
+    "dns_lookup_realm = false",
+    "dns_lookup_kdc = false",
+    "ticket_lifetime = 24h",
+    "renew_lifetime = 7d",
+    "forwardable = true",
+    "",
+    "[realms]",
+    "$default_realm = {",
+    "kdc = $kdc",
+    "admin_server = $admin_server",
+    "}",
+    "",
+    "[domain_realm]",
+    ".kdc = $default_realm",
+    "kdc = $default_realm"
+  );
+}
+if ($os_name=~/SunOS/) {
+  # Create an array of entries for krb5.conf
+  @krb5_conf_entries = (
+    "[libdefaults]",
+    "  default_realm = $default_realm",
+    "  verify_ap_req_nofail = false",
+    "",
+    "[realms]",
+    "  $default_realm = {",
+    "    kdc = $kdc",
+    "    admin_server = $admin_server",
+    "  }",
+    "",
+    "[domain_realm]",
+    "  .$kdc = $default_realm",
+    "",
+    "[logging]",
+    "  default = FILE:/var/krb5/kdc.log",
+    "  kdc = FILE:/var/krb5/kdc.log",
+    "  kdc_rotate = {",
+    "    period = 1d",
+    "    versions = 10",
+    "   }",
+    "",
+    "[appdefaults]",
+    "  kinit = {",
+    "    renewable = true",
+    "    forwardable= true",
+    "  }",
+    "  gkadmin = {",
+    "    help_url = http://docs.sun.com:80/ab2/coll.384.1/SEAM/\@AB2PageView/1195",
+    "  }"
+  );
 }
 
 if ($#ARGV == -1) {
@@ -246,16 +320,16 @@ if ($option{'V'}) {
 
 # Run check
 
-if ($option{'c'}) {
+if (($option{'c'})||($option{'f'})||($option{'i'})||($option{'u'})) {
+  if ($option{'i'}) {
+    $option{'f'}=1;
+  }
   get_host_info();
   adi_check();
   exit;
 }
 
-sub handle_output {
-  my $output=$_[0];
-  print "$output\n";
-}
+# Subrouting to print usage information
 
 sub print_usage {
   print "\n";
@@ -265,70 +339,113 @@ sub print_usage {
   print "-h: Print help\n";
   print "-s: Check server (KDC config)\n";
   print "-c: Check Active Directory (Kerberos) Integration configs\n";
+  print "-f: Fix Active Directory (Kerberos) Integration configs\n";
+  print "-i: Install Active Directory (Kerberos) Integration configs\n";
+  print "-u: Undo Active Directory (Kerberos) Integration configs\n";
   print "\n";
   return;
 }
+
+# Subroutine to get host information
 
 sub get_host_info {
   $os_name=`uname`;
   chomp($os_name);
   if ($os_name=~/Linux/) {
-    $os_rel=`lsb_release -r |awk '{print $2}'`;
+    $os_rel=`lsb_release -r |awk '{print \$2}'`;
     chomp($os_rel);
   }
   return;
 }
 
+# Subrouting to check a file exists
+
 sub check_file_exists {
   my $filename=$_[0];
   if (! -f "$filename") {
-    handle_output("Warning: File \"$filename\" does not exist");
+    print "Warning: File \"$filename\" does not exist\n";
     return("");
   }
   else {
-    handle_output("File \"$filename\" exists");
+    print "File \"$filename\" exists\n";
     return($filename);
   }
 }
 
+# Subroutine to check a directory exists
+
 sub check_dir_exists {
   my $dirname=$_[0];
   if (! -d "$dirname") {
-    handle_output("Warning: Directory \"$dirname\" does not exist");
+    print "Warning: Directory \"$dirname\" does not exist\n";
     return("");
   }
   else {
-    handle_output("Directory \"$dirname\" exists");
+    print "Directory \"$dirname\" exists\n";
     return($dirname);
   }
 }
 
-sub check_file_entries {
+# Subroutine to check entries for a config file
+
+sub check_file_values {
   my $check_file=$_[0];
-  my @file_entries;
+  my @file_values;
   my $entry; 
   my $info;
   my $line;
+  my $correct=1;
   if (-f "$check_file") {
-    @file_entries=`cat $check_file`;
-    foreach $entry (@conf_file_entries) {
+    # check entries in the file against the correct values in the array
+    @file_values=`cat $check_file`;
+    foreach $entry (@conf_file_values) {
       $info=$entry;
       $info=~s/\[\[\:space\:\]\]\*/ /g;
-      if (grep /$entry/, @file_entries) {
-        $line="File $check_file contains $info";
+      if (grep /$entry/, @file_values) {
+        print "File \"$check_file\" contains \"$info\"\n";
       }
       else {
-        $line="Warning: File \"$check_file\" does not contain \"$info\"";
+        $correct=0;
+        print "Warning: File \"$check_file\" does not contain \"$info\"\n";
       }
-      handle_output($line);
+      print "$line\n";;
     }
   }
   else {
-    $line="Warning: File \"$check_file\" does not contain \"$info\"";
-    handle_output($line);
+    print "Warning: File \"$check_file\" does not contain \"$info\"\n";
+  }
+  # If we enconunter a value that is not set correctly and we are in
+  # fix mode, backup the file, zero it out and dump correct values into it
+  if ($option{'f'}) {
+    if ($correct eq 0) {
+      if (-f "$check_file") {
+        print "Backing up $check_file to $check_file.pread\n";
+        system("cp $check_file $check_file.pread");
+      }
+      print "Creating $check_file\n";
+      system("cat /dev/null > $check_file");
+      open(OUTPUT,">>",$check_file);
+      foreach $entry (@conf_file_values) {
+        $line=$entry;
+        $line=~s/\[\[\:space\:\]\]\*/\t/g;
+        print OTUPUT "$line\n";
+      }
+      close(OUTPUT);
+    }
+  }
+  # To undo AD check if pread file exists, if so cat it's contents into
+  # config file and remove it
+  if ($option{'u'}) {
+    if (-f "$check_file.pread") {
+      print "Restoring original $check_file\n";
+      system("cat $check_file.pread > $check_file");
+      system ("rm $check_file.pread");
+    }
   }
   return;
 }
+
+# Subroutine to check parameters and their values for a config file
 
 sub check_conf_file {
   my $conf_file=$_[0];
@@ -342,7 +459,11 @@ sub check_conf_file {
   my $results_param;
   my $results_value;
   my %results;
+  my $correct=1;
+  my @file_entries;
   $conf_file=check_file_exists($conf_file);
+  # Build a hash with the parameter name which we'll set to 1 or 0
+  # depending if the parameter is set correct or incorrect
   while (($hash_param,$hash_value)=each(%params)) {
     $results{$hash_param}=0;
   }
@@ -356,18 +477,53 @@ sub check_conf_file {
           ($line_param,$line_value)=split("=",$line);
           $line_value=~s/ //g;
           if ($line_value!~/^$hash_value/) {
-            handle_output("Parameter \"$hash_param\" in \"$conf_file\" correctly set to \"$hash_value\"");
+            print "Parameter \"$hash_param\" in \"$conf_file\" correctly set to \"$hash_value\"\n";
           }
         }
       }
     }
     while (($results_param,$results_value)=each(%results)) {
       if ($results_value == 0) {
-        handle_output("Warning: File \"$conf_file\" does not contain \"$results_param = $results{$results_param}\"");
+        $correct=0;
+        print "Warning: File \"$conf_file\" does not contain \"$results_param = $results{$results_param}\"\n";
       }
     }
   }
+  # If we enconunter a value that is not set correctly and we are in
+  # fix mode, backup the file, zero it out and dump correct values into it
+  if ($option{'f'}) {
+    if ($correct eq 0) {
+      if (-f "$conf_file") {
+        print "Backing up $conf_file to $conf_file.pread\n";
+        system("cp $conf_file $conf_file.pread");
+      }
+      if ($conf_file=~/krb5/) {
+        @file_entries=@krb5_conf_entries;
+      }
+      else {
+        @file_entries=@kdc_conf_entries;
+      }
+      print "Creating $conf_file\n";
+      system("cat /dev/null > $conf_file");
+      open(OUTPUT,">>",$conf_file);
+      foreach $line (@file_entries) {
+        print OUTPUT "$line\n";
+      }
+      close(OUTPUT);
+    } 
+  }
+  # To undo AD check if pread file exists, if so cat it's contents into
+  # config file and remove it
+  if ($option{'u'}) {
+    if (-f "$conf_file.pread") {
+      print "Restoring original $conf_file\n";
+      system("cat $conf_file.pread > $conf_file");
+      system ("rm $conf_file.pread");
+    }
+  }
 }
+
+# Subroutine to check status of required services
 
 sub check_krb5_services {
   my $service;
@@ -376,17 +532,40 @@ sub check_krb5_services {
   foreach $service (@krb5_services) {
     ($service,$correct_status)=split(",",$service);
     if ($os_name=~/SunOS/) {
-      $status=`svcs -l $service |grep '^state ' |awk '{print $1}'`;
+      $status=`svcs -l $service |grep '^state ' |awk '{print \$1}'`;
     }
     if ($status=~/$correct_status/) {
-      handle_output("Service $service is \"$correct_status\"");
+      # If we are uninstalling stop service
+      print "Service $service is \"$correct_status\"\n";
+      if ($option{'u'}) {
+        print "Disabling $service\n";
+        if ($os_name=~/SunOS/) {
+          system("svcadm disable $service");
+        }
+        else {
+          system("/sbin/service $service stop");
+          system("/sbin/chkconfig $service off");
+        }
+      }
     }
     else {
-      handle_output("Warning: Service \"$service\" is \"$correct_status\"");
+      # If we are fixing or installing start service
+      print "Warning: Service \"$service\" is not \"$correct_status\"\n";
+      if ($option{'f'}) {
+        if ($os_name=~/SunOS/) {
+          system("svcadm enable $service");
+        }
+        else {
+          system("/sbin/chkconfig $service on");
+          system("/sbin/service $service start");
+        }
+      }
     }
   }
   return;
 }
+
+# Subroutine to check file permissions and ownerships
 
 sub check_file_perms {
   my $check_file=$_[0];
@@ -404,26 +583,41 @@ sub check_file_perms {
     $file_group=(stat($check_file))[5];
     $file_user=getpwuid($file_user);
     if ($file_mode != $check_perm) {
-      handle_output("Warning: Permissions on \"$check_file\" are not \"$check_perm\"");
+      print "Warning: Permissions on \"$check_file\" are not \"$check_perm\"\n";
+      print "Warning: Permissions nf $check_file are not $check_perm\n";
+      if ($option{'f'}) {
+        print "Fixing permissions on $check_file\n";
+        system("chmod $check_perm $check_file");
+      }
     }
     else {
-      handle_output("Permissions on \"$check_file\" are correctly set to \"$check_perm\"");
+      print "Permissions on \"$check_file\" are correctly set to \"$check_perm\"\n";
     }
     if ($file_user != $check_user) {
-      handle_output("Warning: Ownership of \"$check_file\" is not \"$check_user\"");
+      print "Warning: Ownership of \"$check_file\" is not \"$check_user\"\n";
+      if ($option{'f'}) {
+        print "Fixing ownership of $check_file\n";
+        system("chown $check_user $check_file");
+      }
     }
     else {
-      handle_output("Ownership of \"$check_file\" is correctly set to \"$check_user\"");
+      print "Ownership of \"$check_file\" is correctly set to \"$check_user\"\n";
     }
     if ($file_group != $check_group) {
-      handle_output("Warning: Group ownership of \"$check_file\" is not \"$check_group\"");
+      print "Warning: Group ownership of \"$check_file\" is not \"$check_group\"\n";
+      if ($option{'f'}) {
+        print "Fixing group ownership on $check_file\n";
+        system("chgrp $check_group $check_file");
+      }
     }
     else {
-      handle_output("Group ownership of \"$check_file\" is correctly set to \"$check_group\"");
+      print "Group ownership of \"$check_file\" is correctly set to \"$check_group\"\n";
     }
   }
   return;
 }
+
+# Subroutine to check we've got tickets
 
 sub check_klist {
   if ($os_name=~/SunOS/) {
@@ -435,23 +629,25 @@ sub check_klist {
   return;
 }
 
+# Main subroutine
+
 sub adi_check {
-  @conf_file_entries=@pam_entries;
-  check_file_entries($pam_file);
-  %params=%krb5_conf_entries;
+  @conf_file_values=@pam_values;
+  check_file_values($pam_file);
+  %params=%krb5_conf_values;
   check_conf_file($krb5_conf_file);
   if ($os_name=~/SunOS/) {
     if ($option{'s'}) {
-      %params=%kdc_conf_entries;
+      %params=%kdc_conf_values;
       check_conf_file($kdc_conf_file);
     }
   }
   else {
-    @conf_file_entries=@linux_kdc_conf_entries;
-    check_file_entries($kdc_conf_file);
+    @conf_file_values=@linux_kdc_conf_values;
+    check_file_values($kdc_conf_file);
     if ($os_rel=~/^6/) {
-      %params=%sssd_conf_entries;
-      check_file_entries($sssd_file);  
+      %params=%sssd_conf_values;
+      check_file_values($sssd_file);  
     }
   }
   check_krb5_services();
