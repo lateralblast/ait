@@ -4,7 +4,7 @@ use strict;
 use Getopt::Std;
 
 # Name:         adicheck.pl
-# Version:      0.1.1
+# Version:      0.1.2
 # Release:      1
 # License:      Open Source 
 # Group:        System
@@ -37,6 +37,8 @@ use Getopt::Std;
 #               Updated documentation
 #               0.1.1 Mon  9 Sep 2013 17:04:26 EST
 #               Updated krb5.conf handling
+#               0.1.2 Mon  9 Sep 2013 18:04:26 EST
+#               Fixed bug with updating files
 
 my $script_name=$0;
 my $script_version=`cat $script_name | grep '^# Version' |awk '{print \$3}'`; 
@@ -76,6 +78,7 @@ if ($os_name=~/SunOS/) {
   $pam_file="/etc/pam.conf";
   # Create an array of correct settings for PAM
   @pam_values = (
+    "",
     "other[[:space:]]*auth[[:space:]]*requisite[[:space:]]*pam_authtok_get.so.1",
     "other[[:space:]]*auth[[:space:]]*sufficient[[:space:]]*pam_krb5.so.1",
     "other[[:space:]]*auth[[:space:]]*sufficient[[:space:]]*pam_unix_auth.so.1 try_first_pass",
@@ -226,34 +229,34 @@ if ($os_name=~/SunOS/) {
   # Create an array of entries for krb5.conf
   @krb5_conf_entries = (
     "[libdefaults]",
-    "  default_realm = $default_realm",
-    "  verify_ap_req_nofail = false",
+    "    default_realm = $default_realm",
+    "    verify_ap_req_nofail = false",
     "",
     "[realms]",
-    "  $default_realm = {",
-    "    kdc = $kdc",
-    "    admin_server = $admin_server",
-    "  }",
+    "    $default_realm = {",
+    "        kdc = $kdc",
+    "        admin_server = $admin_server",
+    "    }",
     "",
     "[domain_realm]",
-    "  .$kdc = $default_realm",
+    "    .$kdc = $default_realm",
     "",
     "[logging]",
-    "  default = FILE:/var/krb5/kdc.log",
-    "  kdc = FILE:/var/krb5/kdc.log",
-    "  kdc_rotate = {",
-    "    period = 1d",
-    "    versions = 10",
-    "   }",
+    "    default = FILE:/var/krb5/kdc.log",
+    "    kdc = FILE:/var/krb5/kdc.log",
+    "    kdc_rotate = {",
+    "        period = 1d",
+    "        versions = 10",
+    "     }",
     "",
     "[appdefaults]",
-    "  kinit = {",
-    "    renewable = true",
-    "    forwardable= true",
-    "  }",
-    "  gkadmin = {",
-    "    help_url = http://docs.sun.com:80/ab2/coll.384.1/SEAM/\@AB2PageView/1195",
-    "  }"
+    "    kinit = {",
+    "        renewable = true",
+    "        forwardable= true",
+    "    }",
+    "    gkadmin = {",
+    "        help_url = http://docs.sun.com:80/ab2/coll.384.1/SEAM/\@AB2PageView/1195",
+    "    }"
   );
 }
 
@@ -362,10 +365,11 @@ sub check_file_values {
   my $correct=1;
   if (-f "$check_file") {
     # check entries in the file against the correct values in the array
-    @file_values=`cat $check_file`;
+    @file_values=`cat $check_file |grep -v '^#'`;
     foreach $entry (@conf_file_values) {
       $info=$entry;
       $info=~s/\[\[\:space\:\]\]\*/ /g;
+      if ($)
       if (grep /$entry/, @file_values) {
         print "File \"$check_file\" contains \"$info\"\n";
       }
@@ -392,13 +396,16 @@ sub check_file_values {
         system("cat /dev/null > $check_file");
       }
       else {
+        if ($check_file=~/$pam_file/) {
+          system("cat $check_file.pread |grep -v '^other' > $check_file");
+        }
         print "Updating $check_file\n";
       }
       open(OUTPUT,">>",$check_file);
       foreach $entry (@conf_file_values) {
         $line=$entry;
         $line=~s/\[\[\:space\:\]\]\*/\t/g;
-        print OTUPUT "$line\n";
+        print OUTPUT "$line\n";
       }
       close(OUTPUT);
     }
@@ -503,7 +510,7 @@ sub check_krb5_services {
   foreach $service (@krb5_services) {
     ($service,$correct_status)=split(",",$service);
     if ($os_name=~/SunOS/) {
-      $status=`svcs -l $service |grep '^state ' |awk '{print \$1}'`;
+      $status=`svcs -l $service |grep '^state ' |awk '{print \$2}'`;
     }
     if ($status=~/$correct_status/) {
       # If we are uninstalling stop service
