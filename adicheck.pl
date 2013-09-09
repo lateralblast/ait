@@ -4,7 +4,7 @@ use strict;
 use Getopt::Std;
 
 # Name:         adicheck.pl
-# Version:      0.1.3
+# Version:      0.1.4
 # Release:      1
 # License:      Open Source 
 # Group:        System
@@ -41,6 +41,8 @@ use Getopt::Std;
 #               Fixed bug with updating files
 #               0.1.3 Mon  9 Sep 2013 18:40:39 EST
 #               Small code cleanup
+#               0.1.4 Mon  9 Sep 2013 18:49:43 EST
+#               Fixed bugs
 
 my $script_name=$0;
 my $script_version=`cat $script_name | grep '^# Version' |awk '{print \$3}'`; 
@@ -87,8 +89,8 @@ if ($os_name=~/SunOS/) {
     "other[[:space:]]*account[[:space:]]*sufficient[[:space:]]*pam_krb5.so.1",
     "other[[:space:]]*account[[:space:]]*sufficient[[:space:]]*pam_unix_account.so.1",
     "other[[:space:]]*session[[:space:]]*sufficient[[:space:]]*pam_krb5.so.1",
-    "other[[:space:]]*session[[:space:]]*sufficient[[:space:]]*pam_unix_session.so.1"
-    "",
+    "other[[:space:]]*session[[:space:]]*sufficient[[:space:]]*pam_unix_session.so.1",
+    ""
   );
   $krb5_dir          = "/etc/krb5";
   $keytab_file       = "$krb5_dir/krb5.keytab";
@@ -128,8 +130,8 @@ if ($os_name=~/Linux/) {
       "session[[:space:]]*required[[:space:]]*pam_limits.so",
       "session[[:space:]]*[success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid",
       "session[[:space:]]*sufficient[[:space:]]*pam_krb5.so",
-      "session[[:space:]]*required[[:space:]]*pam_unix.so"
-      "",
+      "session[[:space:]]*required[[:space:]]*pam_unix.so",
+      ""
    );
   }
   if ($os_rel=~/^6/) {
@@ -159,8 +161,8 @@ if ($os_name=~/Linux/) {
       "session[[:space:]]*[success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid",
       "session[[:space:]]*required[[:space:]]*pam_mkhomedir.so skel=/etc/skel/ umask=0077",
       "session[[:space:]]*optional[[:space:]]*pam_sss.so",
-      "session[[:space:]]*required[[:space:]]*pam_unix.so"
-      "",
+      "session[[:space:]]*required[[:space:]]*pam_unix.so",
+      ""
     );
   }
   if ($os_rel=~/^6/) {
@@ -384,15 +386,15 @@ sub check_file_values {
     foreach $entry (@conf_file_values) {
       $info=$entry;
       $info=~s/\[\[\:space\:\]\]\*/ /g;
-      if ($)
-      if (grep /$entry/, @file_values) {
-        print "File \"$check_file\" contains \"$info\"\n";
+      if ($info!~/^$/) {
+        if (grep /$entry/, @file_values) {
+          print "File \"$check_file\" contains \"$info\"\n";
+        }
+        else {
+          $correct=0;
+          print "Warning: File \"$check_file\" does not contain \"$info\"\n";
+        }
       }
-      else {
-        $correct=0;
-        print "Warning: File \"$check_file\" does not contain \"$info\"\n";
-      }
-      print "$line\n";;
     }
   }
   else {
