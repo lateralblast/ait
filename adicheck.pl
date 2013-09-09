@@ -4,7 +4,7 @@ use strict;
 use Getopt::Std;
 
 # Name:         adicheck.pl
-# Version:      0.1.2
+# Version:      0.1.3
 # Release:      1
 # License:      Open Source 
 # Group:        System
@@ -39,6 +39,8 @@ use Getopt::Std;
 #               Updated krb5.conf handling
 #               0.1.2 Mon  9 Sep 2013 18:04:26 EST
 #               Fixed bug with updating files
+#               0.1.3 Mon  9 Sep 2013 18:40:39 EST
+#               Small code cleanup
 
 my $script_name=$0;
 my $script_version=`cat $script_name | grep '^# Version' |awk '{print \$3}'`; 
@@ -86,6 +88,7 @@ if ($os_name=~/SunOS/) {
     "other[[:space:]]*account[[:space:]]*sufficient[[:space:]]*pam_unix_account.so.1",
     "other[[:space:]]*session[[:space:]]*sufficient[[:space:]]*pam_krb5.so.1",
     "other[[:space:]]*session[[:space:]]*sufficient[[:space:]]*pam_unix_session.so.1"
+    "",
   );
   $krb5_dir          = "/etc/krb5";
   $keytab_file       = "$krb5_dir/krb5.keytab";
@@ -104,50 +107,60 @@ if ($os_name=~/Linux/) {
   if ($os_rel=~/^5/) {
     # Create an array of correct settings for PAM
     @pam_values = (
+      "",
       "auth[[:space:]]*required[[:space:]]*pam_env.so",
       "auth[[:space:]]*sufficient[[:space:]]*pam_krb5.so",
       "auth[[:space:]]*sufficient[[:space:]]*pam_unix.so nullok try_first_pass",
       "auth[[:space:]]*requisite[[:space:]]*pam_succeed_if.so uid >= 500 quiet",
       "auth[[:space:]]*required[[:space:]]*pam_deny.so",
+      "",
       "account[[:space:]]*sufficient[[:space:]]*pam_krb5.so",
       "account[[:space:]]*required[[:space:]]*pam_unix.so",
       "account[[:space:]]*sufficient[[:space:]]*pam_succeed_if.so uid < 500 quiet",
       "account[[:space:]]*required[[:space:]]*pam_permit.so",
+      "",
       "password[[:space:]]*requisite[[:space:]]*pam_cracklib.so try_first_pass retry=3",
       "password[[:space:]]*sufficient[[:space:]]*pam_krb5.so",
       "password[[:space:]]*sufficient[[:space:]]*pam_unix.so md5 shadow nullok try_first_pass use_authtok",
       "password[[:space:]]*required[[:space:]]*pam_deny.so",
+      "",
       "session[[:space:]]*optional[[:space:]]*pam_keyinit.so revoke",
       "session[[:space:]]*required[[:space:]]*pam_limits.so",
       "session[[:space:]]*[success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid",
       "session[[:space:]]*sufficient[[:space:]]*pam_krb5.so",
       "session[[:space:]]*required[[:space:]]*pam_unix.so"
+      "",
    );
   }
   if ($os_rel=~/^6/) {
     # Create an array of correct settings for PAM
     @pam_values = (
+      "",
       "auth[[:space:]]*required[[:space:]]*pam_env.so",
       "auth[[:space:]]*sufficient[[:space:]]*pam_fprintd.so",
       "auth[[:space:]]*sufficient[[:space:]]*pam_unix.so nullok try_first_pass",
       "auth[[:space:]]*requisite[[:space:]]*pam_succeed_if.so uid >= 500 quiet",
       "auth[[:space:]]*sufficient[[:space:]]*pam_sss.so use_first_pass",
       "auth[[:space:]]*required[[:space:]]*pam_deny.so",
+      "",
       "account[[:space:]]*required[[:space:]]*pam_unix.so",
       "account[[:space:]]*sufficient[[:space:]]*pam_localuser.so",
       "account[[:space:]]*sufficient[[:space:]]*pam_succeed_if.so uid < 500 quiet",
       "account[[:space:]]*[default=bad success=ok user_unknown=ignore] pam_sss.so",
       "account[[:space:]]*required[[:space:]]*pam_permit.so",
+      "",
       "password[[:space:]]*requisite[[:space:]]*pam_cracklib.so try_first_pass retry=3 type=",
       "password[[:space:]]*sufficient[[:space:]]*pam_unix.so md5 shadow nullok try_first_pass use_authtok",
       "password[[:space:]]*sufficient[[:space:]]*pam_sss.so use_authtok",
       "password[[:space:]]*required[[:space:]]*pam_deny.so",
+      "",
       "session[[:space:]]*optional[[:space:]]*pam_keyinit.so revoke",
       "session[[:space:]]*required[[:space:]]*pam_limits.so",
       "session[[:space:]]*[success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid",
       "session[[:space:]]*required[[:space:]]*pam_mkhomedir.so skel=/etc/skel/ umask=0077",
       "session[[:space:]]*optional[[:space:]]*pam_sss.so",
       "session[[:space:]]*required[[:space:]]*pam_unix.so"
+      "",
     );
   }
   if ($os_rel=~/^6/) {
@@ -201,6 +214,7 @@ if ($os_name=~/Linux/) {
 if ($os_name=~/Linux/) {
   # Create an array of entries for krb5.conf
   @krb5_conf_entries = (
+    "",
     "[logging]",
     "default = FILE:/var/log/krb5libs.log",
     "kdc = FILE:/var/log/krb5kdc.log",
@@ -228,6 +242,7 @@ if ($os_name=~/Linux/) {
 if ($os_name=~/SunOS/) {
   # Create an array of entries for krb5.conf
   @krb5_conf_entries = (
+    "",
     "[libdefaults]",
     "    default_realm = $default_realm",
     "    verify_ap_req_nofail = false",
