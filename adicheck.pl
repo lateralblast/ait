@@ -4,7 +4,7 @@ use strict;
 use Getopt::Std;
 
 # Name:         adicheck.pl
-# Version:      0.0.9
+# Version:      0.1.1
 # Release:      1
 # License:      Open Source 
 # Group:        System
@@ -33,6 +33,10 @@ use Getopt::Std;
 #               Cleaned up parameter checking
 #               0.0.9 Mon  9 Sep 2013 10:12:00 EST
 #               Added fix/install and uninstall capability
+#               0.1.0 Mon  9 Sep 2013 11:38:12 EST
+#               Updated documentation
+#               0.1.1 Mon  9 Sep 2013 17:04:26 EST
+#               Updated krb5.conf handling
 
 my $script_name=$0;
 my $script_version=`cat $script_name | grep '^# Version' |awk '{print \$3}'`; 
@@ -64,7 +68,6 @@ my %kdc_conf_values;
 my @kdc_conf_entries;
 my %sssd_conf_values;
 my %params;
-my @linux_kdc_conf_values;
 my $options="Vchsfiu";
 
 get_host_info();
@@ -87,27 +90,6 @@ if ($os_name=~/SunOS/) {
   $kdc_conf_file     = "$krb5_dir/kdc.conf";
   $kadm5_keytab_file = "$krb5_dir/kadm5.keytab";
   $kadm5_acl_file    = "$krb5_dir/kadm5.acl";
-  # Create a hash of correct values for krb5.conf
-  %krb5_conf_values = (
-    "default_realm"             , "$default_realm",
-    "verify_ap_req_nofail"      , "false",
-    "$default_realm"            , "{",
-    "kdc"                       , "$kdc",
-    "admin_server"              , "$admin_server",
-    "$admin_server"             , "$default_realm"
-  );
-  # Create a hash of correct values for kdc.conf
-  %kdc_conf_values = (
-    "kdc_ports"                 , "88,750",
-    "$default_realm"            , "{",
-    "profile"                   , "$krb5_conf_file",
-    "admin_keytab"              , "$kadm5_keytab_file",
-    "acl_file"                  , "$kadm5_acl_file",
-    "kadmind_port"              , "749",
-    "max_life"                  , "10h 0m 0s",
-    "max_renewable_life"        , "7d 0h 0m 0s",
-    "default_principal_flags"   , "+preauth"
-  );
   # Correct state for service
   @krb5_services = (
     "svc:/network/security/ktkt_warn:default,online"
@@ -205,25 +187,8 @@ if ($os_name=~/Linux/) {
   $kdc_conf_file     = "$krb5_dir/kdc.conf";
   $kadm5_keytab_file = "$krb5_dir/kadm5.keytab";
   $kadm5_acl_file    = "$krb5_dir/kadm5.acl";
-  # Create a hash of correct values for krb5.conf
-  %krb5_conf_values = (
-    "default"                   , "FILE:/var/log/krb5libs.log",
-    "kdc"                       , "FILE:/var/log/krb5kdc.log",
-    "admin_server"              , "FILE:/var/log/kadmind.log",
-    "default_realm"             , "$default_realm",
-    "dns_lookup_realm"          , "false", 
-    "dns_lookup_kdc"            , "false",
-    "ticket_lifetime"           , "24h",
-    "renew_lifetime"            , "7d",
-    "forwardable"               , "true",
-    "$default_realm"            , "{",
-    "kdc"                       , "$kdc:88",
-    "admin_server"              , "$admin_server:749",
-    ".$kdc"                     , "$default_realm",
-    "$kdc"                      , "$default_realm"
-  );
   # Create an array for correct values for kdc.conf
-  @linux_kdc_conf_values = (
+  @kdc_conf_entries = (
     "$default_realm",
     "$default_realm"."[[:space:]]*$kdc:88",
     "$default_realm"."[[:space:]]*$kdc:749 admin server",
@@ -422,8 +387,13 @@ sub check_file_values {
         print "Backing up $check_file to $check_file.pread\n";
         system("cp $check_file $check_file.pread");
       }
-      print "Creating $check_file\n";
-      system("cat /dev/null > $check_file");
+      if ($os_name=~/Linux/) {
+        print "Creating $check_file\n";
+        system("cat /dev/null > $check_file");
+      }
+      else {
+        print "Updating $check_file\n";
+      }
       open(OUTPUT,">>",$check_file);
       foreach $entry (@conf_file_values) {
         $line=$entry;
@@ -477,7 +447,8 @@ sub check_conf_file {
           ($line_param,$line_value)=split("=",$line);
           $line_value=~s/ //g;
           if ($line_value!~/^$hash_value/) {
-            print "Parameter \"$hash_param\" in \"$conf_file\" correctly set to \"$hash_value\"\n";
+            print "Parameter \"$hash_param\" in \"$conf_file\" not correctly set to \"$hash_value\"\n";
+            $results{$hash_param}=0;
           }
         }
       }
@@ -634,8 +605,8 @@ sub check_klist {
 sub adi_check {
   @conf_file_values=@pam_values;
   check_file_values($pam_file);
-  %params=%krb5_conf_values;
-  check_conf_file($krb5_conf_file);
+  @conf_file_values=@krb5_conf_entries;
+  check_file_values($krb5_conf_file);
   if ($os_name=~/SunOS/) {
     if ($option{'s'}) {
       %params=%kdc_conf_values;
@@ -643,7 +614,7 @@ sub adi_check {
     }
   }
   else {
-    @conf_file_values=@linux_kdc_conf_values;
+    @conf_file_values=@kdc_conf_entries;
     check_file_values($kdc_conf_file);
     if ($os_rel=~/^6/) {
       %params=%sssd_conf_values;
