@@ -4,7 +4,7 @@ use strict;
 use Getopt::Std;
 
 # Name:         adicheck.pl
-# Version:      0.1.4
+# Version:      0.1.5
 # Release:      1
 # License:      Open Source 
 # Group:        System
@@ -43,6 +43,8 @@ use Getopt::Std;
 #               Small code cleanup
 #               0.1.4 Mon  9 Sep 2013 18:49:43 EST
 #               Fixed bugs
+#               0.1.5 Mon  9 Sep 2013 23:23:08 EST
+#               More bug fixes
 
 my $script_name=$0;
 my $script_version=`cat $script_name | grep '^# Version' |awk '{print \$3}'`; 
@@ -105,7 +107,7 @@ if ($os_name=~/SunOS/) {
 }
 
 if ($os_name=~/Linux/) {
-  $pam_file="/etc/pam/system-auth-ac";
+  $pam_file="/etc/pam.d/system-auth-ac";
   if ($os_rel=~/^5/) {
     # Create an array of correct settings for PAM
     @pam_values = (
@@ -128,7 +130,7 @@ if ($os_name=~/Linux/) {
       "",
       "session[[:space:]]*optional[[:space:]]*pam_keyinit.so revoke",
       "session[[:space:]]*required[[:space:]]*pam_limits.so",
-      "session[[:space:]]*[success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid",
+      "session[[:space:]]*\\[success=1 default=ignore\\] pam_succeed_if.so service in crond quiet use_uid",
       "session[[:space:]]*sufficient[[:space:]]*pam_krb5.so",
       "session[[:space:]]*required[[:space:]]*pam_unix.so",
       ""
