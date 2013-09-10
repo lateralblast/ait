@@ -4,7 +4,7 @@ use strict;
 use Getopt::Std;
 
 # Name:         adicheck.pl
-# Version:      0.1.6
+# Version:      0.1.7
 # Release:      1
 # License:      Open Source 
 # Group:        System
@@ -47,6 +47,8 @@ use Getopt::Std;
 #               More bug fixes
 #               0.1.6 Tue 10 Sep 2013 13:49:23 EST
 #               Got rid of hashes
+#               0.1.7 Tue 10 Sep 2013 14:07:31 EST
+#               Added check to make sure Organisation details are set
 
 my $script_name=$0;
 my $script_version=`cat $script_name | grep '^# Version' |awk '{print \$3}'`; 
@@ -297,6 +299,7 @@ if ($os_name=~/SunOS/) {
 
 if ($#ARGV == -1) {
   print_usage();
+  exit;
 }
 else {
   getopts($options,\%option);
@@ -307,6 +310,15 @@ else {
 if ($option{'h'}) {
   print_usage();
   exit;
+}
+
+# Check whether Organisation details are set
+
+if ((!$option{'h'})||($option{'V'})) {
+  if ($org_name=~/Blah/) {
+    print "Set the Organisation details and rerun script\n";
+    exit;
+  }
 }
 
 sub print_version {
