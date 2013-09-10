@@ -4,7 +4,7 @@ use strict;
 use Getopt::Std;
 
 # Name:         adicheck.pl
-# Version:      0.1.7
+# Version:      0.1.8
 # Release:      1
 # License:      Open Source 
 # Group:        System
@@ -49,6 +49,8 @@ use Getopt::Std;
 #               Got rid of hashes
 #               0.1.7 Tue 10 Sep 2013 14:07:31 EST
 #               Added check to make sure Organisation details are set
+#               0.1.8 Tue 10 Sep 2013 15:59:58 EST
+#               Fixed bug with Organisation check
 
 my $script_name=$0;
 my $script_version=`cat $script_name | grep '^# Version' |awk '{print \$3}'`; 
@@ -229,7 +231,7 @@ if ($os_name=~/Linux/) {
   @kdc_conf_entries = (
     "$default_realm",
     "$default_realm"."[[:space:]]*$kdc:88",
-    "$default_realm"."[[:space:]]*$kdc:749 admin server",
+    "$default_realm"."[[:space:]]*$kdc:749 admin server"
   ); 
 }
 
@@ -314,7 +316,7 @@ if ($option{'h'}) {
 
 # Check whether Organisation details are set
 
-if ((!$option{'h'})||($option{'V'})) {
+if ((!$option{'h'})&&(!$option{'V'})) {
   if ($org_name=~/Blah/) {
     print "Set the Organisation details and rerun script\n";
     exit;
