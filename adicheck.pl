@@ -4,7 +4,7 @@ use strict;
 use Getopt::Std;
 
 # Name:         adicheck.pl
-# Version:      0.1.5
+# Version:      0.1.6
 # Release:      1
 # License:      Open Source 
 # Group:        System
@@ -45,12 +45,14 @@ use Getopt::Std;
 #               Fixed bugs
 #               0.1.5 Mon  9 Sep 2013 23:23:08 EST
 #               More bug fixes
+#               0.1.6 Tue 10 Sep 2013 13:49:23 EST
+#               Got rid of hashes
 
 my $script_name=$0;
 my $script_version=`cat $script_name | grep '^# Version' |awk '{print \$3}'`; 
 my %option=();
 my $os_name;
-my @pam_values;
+my @pam_entries;
 my $krb5_dir;
 my $krb5_conf_file;
 my $kdc_conf_file;
@@ -68,14 +70,11 @@ my $sssd_file               = "/etc/sssd/sssd.conf";
 my $keytab_file;
 my @krb5_services;
 my $pam_file;
-my @conf_file_values;
+my @conf_file_entries;
 my $os_rel;
-my %krb5_conf_values;
 my @krb5_conf_entries;
-my %kdc_conf_values;
 my @kdc_conf_entries;
-my %sssd_conf_values;
-my %params;
+my @sssd_conf_entries;
 my $options="Vchsfiu";
 
 get_host_info();
@@ -83,7 +82,7 @@ get_host_info();
 if ($os_name=~/SunOS/) {
   $pam_file="/etc/pam.conf";
   # Create an array of correct settings for PAM
-  @pam_values = (
+  @pam_entries = (
     "",
     "other[[:space:]]*auth[[:space:]]*requisite[[:space:]]*pam_authtok_get.so.1",
     "other[[:space:]]*auth[[:space:]]*sufficient[[:space:]]*pam_krb5.so.1",
@@ -110,7 +109,7 @@ if ($os_name=~/Linux/) {
   $pam_file="/etc/pam.d/system-auth-ac";
   if ($os_rel=~/^5/) {
     # Create an array of correct settings for PAM
-    @pam_values = (
+    @pam_entries = (
       "",
       "auth[[:space:]]*required[[:space:]]*pam_env.so",
       "auth[[:space:]]*sufficient[[:space:]]*pam_krb5.so",
@@ -138,7 +137,7 @@ if ($os_name=~/Linux/) {
   }
   if ($os_rel=~/^6/) {
     # Create an array of correct settings for PAM
-    @pam_values = (
+    @pam_entries = (
       "",
       "auth[[:space:]]*required[[:space:]]*pam_env.so",
       "auth[[:space:]]*sufficient[[:space:]]*pam_fprintd.so",
@@ -168,37 +167,54 @@ if ($os_name=~/Linux/) {
     );
   }
   if ($os_rel=~/^6/) {
-    %sssd_conf_values = (
-      "config_file_version"       , "2",
-      "reconnection_retries"      , "3",
-      "sbus_timeout"              , "30",
-      "services"                  , "nss, pam",
-      "domain"                    , "$default_realm",
-      "filter_groups"             , "root",
-      "filter_users"              , "root",
-      "description"               , "$org_name",
-      "debug_level"               , "256",
-      "enumerate"                 , "false",
-      "min_id"                    , "1000",
-      "id_provider"               , "ldap",
-      "ldap_uri"                  , "ldap://$kdc/",
-      "ldap_schema"               , "rfc2307bis",
-      "ldap_sasl_mech"            , "GSSAPI",
-      "ldap_user_search_base"     , "$ldap_user_search_base",
-      "ldap_group_search_base"    , "$ldap_group_search_base",
-      "ldap_user_object_class"    , "posixAccount",
-      "ldap_user_name"            , "sAMAccountName",
-      "ldap_user_uid_number"      , "uidNumber",
-      "ldap_user_gid_number"      , "gidNumber",
-      "ldap_user_home_directory"  , "unixHomeDirectory",
-      "ldap_user_shell"           , "loginShell",
-      "ldap_user_principal"       , "userPrincipalName",
-      "ldap_user_member"          , "msSFU30PosixMemberOf",
-      "ldap_group_object_class"   , "posixGroup",
-      "ldap_group_name"           , "sAMAccountName",
-      "ldap_group_gid_number"     , "gidNumber",
-      "ldap_group_member"         , "member",
-      "auth_provider"             , "krb5"
+    @sssd_conf_entries = (
+      "",
+      "[sssd]",
+      "config_file_version = 2",
+      "reconnection_retries = 3",
+      "sbus_timeout = 30",
+      "services = nss, pam",
+      "domain = $default_realm",
+      "",
+      "[nss]",
+      "filter_groups = root",
+      "filter_users = root",
+      "",
+      "[pam]",
+      "reconnection_retries = 3",
+      "",
+      "[domain/$default_realm]",
+      "debug_level = 256",
+      "description = $org_name",
+      "enumerate = false",
+      "min_id = 1000",
+      "id_provider = ldap",
+      "ldap_uri = ldap://$kdc/",
+      "ldap_schema = rfc2307bis",
+      "ldap_sasl_mecho = GSSAPI",
+      "ldap_user_search_base = $ldap_user_search_base",
+      "ldap_group_search_base = $ldap_group_search_base",
+      "",
+      "ldap_user_object_class = posixAccount",
+      "ldap_user_name = sAMAccountName",
+      "ldap_user_uid_number = uidNumber",
+      "ldap_user_gid_number = gidNumber",
+      "ldap_user_home_directory = unixHomeDirectory",
+      "ldap_user_shell = loginShell",
+      "ldap_user_principal = userPrincipalName",
+      "ldap_user_member = msSFU30PosixMemberOf",
+      "",
+      "ldap_group_object_class = posixGroup",
+      "ldap_group_name = sAMAccountName",
+      "ldap_group_gid_number = gidNumber",
+      "ldap_group_member = member",
+      "",
+      "auth_provider = krb5",
+      "chpass_provider = krb5",
+      "krb5_realm = $default_realm",
+      "krb5_server = $kdc",
+      "krb5_canonicalize = false",
+      "ldap_force_upper_case_realm = true"
     );
   }
   $krb5_dir          = "/etc";
@@ -375,21 +391,21 @@ sub check_dir_exists {
 
 # Subroutine to check entries for a config file
 
-sub check_file_values {
+sub check_file_entries {
   my $check_file=$_[0];
-  my @file_values;
+  my @file_entries;
   my $entry; 
   my $info;
   my $line;
   my $correct=1;
   if (-f "$check_file") {
     # check entries in the file against the correct values in the array
-    @file_values=`cat $check_file |grep -v '^#'`;
-    foreach $entry (@conf_file_values) {
+    @file_entries=`cat $check_file |grep -v '^#'`;
+    foreach $entry (@conf_file_entries) {
       $info=$entry;
       $info=~s/\[\[\:space\:\]\]\*/ /g;
       if ($info!~/^$/) {
-        if (grep /$entry/, @file_values) {
+        if (grep /$entry/, @file_entries) {
           print "File \"$check_file\" contains \"$info\"\n";
         }
         else {
@@ -421,7 +437,7 @@ sub check_file_values {
         print "Updating $check_file\n";
       }
       open(OUTPUT,">>",$check_file);
-      foreach $entry (@conf_file_values) {
+      foreach $entry (@conf_file_entries) {
         $line=$entry;
         $line=~s/\[\[\:space\:\]\]\*/\t/g;
         print OUTPUT "$line\n";
@@ -439,85 +455,6 @@ sub check_file_values {
     }
   }
   return;
-}
-
-# Subroutine to check parameters and their values for a config file
-
-sub check_conf_file {
-  my $conf_file=$_[0];
-  my @file_info;
-  my $line;
-  my $key;
-  my $hash_param;
-  my $hash_value;
-  my $line_param;
-  my $line_value;
-  my $results_param;
-  my $results_value;
-  my %results;
-  my $correct=1;
-  my @file_entries;
-  $conf_file=check_file_exists($conf_file);
-  # Build a hash with the parameter name which we'll set to 1 or 0
-  # depending if the parameter is set correct or incorrect
-  while (($hash_param,$hash_value)=each(%params)) {
-    $results{$hash_param}=0;
-  }
-  if (-f "$conf_file") {
-    @file_info=`cat $conf_file |grep -v '^#'`;
-    foreach $line (@file_info) {
-      chomp($line);
-      while (($hash_param,$hash_value)=each(%params)) {
-        if ($line=~/$hash_param/) {
-          $results{$hash_param}=1;
-          ($line_param,$line_value)=split("=",$line);
-          $line_value=~s/ //g;
-          if ($line_value!~/^$hash_value/) {
-            print "Parameter \"$hash_param\" in \"$conf_file\" not correctly set to \"$hash_value\"\n";
-            $results{$hash_param}=0;
-          }
-        }
-      }
-    }
-    while (($results_param,$results_value)=each(%results)) {
-      if ($results_value == 0) {
-        $correct=0;
-        print "Warning: File \"$conf_file\" does not contain \"$results_param = $results{$results_param}\"\n";
-      }
-    }
-  }
-  # If we enconunter a value that is not set correctly and we are in
-  # fix mode, backup the file, zero it out and dump correct values into it
-  if ($option{'f'}) {
-    if ($correct eq 0) {
-      if (-f "$conf_file") {
-        print "Backing up $conf_file to $conf_file.pread\n";
-        system("cp $conf_file $conf_file.pread");
-      }
-      if ($conf_file=~/krb5/) {
-        @file_entries=@krb5_conf_entries;
-      }
-      else {
-        @file_entries=@kdc_conf_entries;
-      }
-      print "Creating $conf_file\n";
-      system("cat /dev/null > $conf_file");
-      open(OUTPUT,">>",$conf_file);
-      foreach $line (@file_entries) {
-        print OUTPUT "$line\n";
-      }
-      close(OUTPUT);
-    } 
-  }
-  # To undo AD check if pread file exists, if so cat it's contents into
-  # config file and remove it
-  if ($option{'u'}) {
-    if (-f "$conf_file.pread") {
-      print "Restoring original $conf_file\n";
-      system("cat $conf_file.pread > $conf_file");
-      system ("rm $conf_file.pread");
-    }
-  }
 }
 
 # Subroutine to check status of required services
@@ -629,23 +566,19 @@ sub check_klist {
 # Main subroutine
 
 sub adi_check {
-  @conf_file_values=@pam_values;
-  check_file_values($pam_file);
-  @conf_file_values=@krb5_conf_entries;
-  check_file_values($krb5_conf_file);
-  if ($os_name=~/SunOS/) {
-    if ($option{'s'}) {
-      %params=%kdc_conf_values;
-      check_conf_file($kdc_conf_file);
+  @conf_file_entries=@pam_entries;
+  check_file_entries($pam_file);
+  @conf_file_entries=@krb5_conf_entries;
+  check_file_entries($krb5_conf_file);
+  if ($os_name=~/Linux/) {
+    if ($os_rel=~/^6/) {
+      @conf_file_entries=@sssd_conf_entries;
+      check_file_entries($sssd_file);  
     }
   }
-  else {
-    @conf_file_values=@kdc_conf_entries;
-    check_file_values($kdc_conf_file);
-    if ($os_rel=~/^6/) {
-      %params=%sssd_conf_values;
-      check_file_values($sssd_file);  
-    }
+  if ($option{'s'}) {
+    @conf_file_entries=@kdc_conf_entries;
+    check_file_entries($kdc_conf_file);
   }
   check_krb5_services();
   check_klist();
