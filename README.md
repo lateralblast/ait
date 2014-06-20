@@ -1,3 +1,5 @@
+![alt tag](https://raw.githubusercontent.com/lateralblast/ait/master/ait.jpg)
+
 AIT
 ===
 
