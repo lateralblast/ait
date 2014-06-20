@@ -1,0 +1,39 @@
+# Changes:
+# 0.0.1: Sat 24 Aug 2013 16:17:41 EST
+# Initial version
+# 0.0.2: Sun 25 Aug 2013 08:53:18 EST
+# Added Linux support
+# 0.0.3: Sun 25 Aug 2013 15:42:36 EST
+# Bug fixes
+# 0.0.4: Sun 25 Aug 2013 17:21:52 EST
+# Code clean up
+# 0.0.5: Mon 26 Aug 2013 07:51:36 EST
+# Added file permission check
+# 0.0.6: Mon 26 Aug 2013 08:11:16 EST
+# Added group permissions check
+# 0.0.7: Mon 26 Aug 2013 08:35:11 EST
+# Fixed permissions check to include directories
+# 0.0.8: Mon 26 Aug 2013 10:20:04 EST
+# Cleaned up parameter checking
+# 0.0.9: Mon  9 Sep 2013 10:12:00 EST
+# Added fix/install and uninstall capability
+# 0.1.0: Mon  9 Sep 2013 11:38:12 EST
+# Updated documentation
+# 0.1.1: Mon  9 Sep 2013 17:04:26 EST
+# Updated krb5.conf handling
+# 0.1.2: Mon  9 Sep 2013 18:04:26 EST
+# Fixed bug with updating files
+# 0.1.3: Mon  9 Sep 2013 18:40:39 EST
+# Small code cleanup
+# 0.1.4: Mon  9 Sep 2013 18:49:43 EST
+# Fixed bugs
+# 0.1.5: Mon  9 Sep 2013 23:23:08 EST
+# More bug fixes
+# 0.1.6: Tue 10 Sep 2013 13:49:23 EST
+# Got rid of hashes
+# 0.1.7: Tue 10 Sep 2013 14:07:31 EST
+# Added check to make sure Organisation details are set
+# 0.1.8: Tue 10 Sep 2013 15:59:58 EST
+# Fixed bug with Organisation check
+# 0.1.9: Sat 21 Jun 2014 08:53:57 EST
+# Updated documentation and license

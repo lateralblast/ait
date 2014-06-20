@@ -1,60 +1,25 @@
 #!/usr/bin/env perl
 
-use strict;
-use Getopt::Std;
-
-# Name:         adicheck.pl
-# Version:      0.1.8
+# Name:         ait (Active directory Installation/Integration Tool)
+# Version:      0.1.9
 # Release:      1
-# License:      Open Source 
+# License:      CC-BA (Creative Commons By Attribution)
+#               http://creativecommons.org/licenses/by/4.0/legalcode
 # Group:        System
-# Source:       N/A 
-# URL:          N/A
+# Source:       N/A
+# URL:          http://lateralblast.com.au/
 # Distribution: Solaris / Linux
-# Vendor:       Lateral Blast 
+# Vendor:       Lateral Blast
 # Packager:     Richard Spindler <richard@lateralblast.com.au>
 # Description:  Script to check Active Directory (Kerberos) Integration for Solaris / Linux
 
-# Changes       0.0.1 Sat 24 Aug 2013 16:17:41 EST
-#               Initial version
-#               0.0.2 Sun 25 Aug 2013 08:53:18 EST
-#               Added Linux support
-#               0.0.3 Sun 25 Aug 2013 15:42:36 EST
-#               Bug fixes
-#               0.0.4 Sun 25 Aug 2013 17:21:52 EST
-#               Code clean up
-#               0.0.5 Mon 26 Aug 2013 07:51:36 EST
-#               Added file permission check
-#               0.0.6 Mon 26 Aug 2013 08:11:16 EST
-#               Added group permissions check
-#               0.0.7 Mon 26 Aug 2013 08:35:11 EST
-#               Fixed permissions check to include directories
-#               0.0.8 Mon 26 Aug 2013 10:20:04 EST
-#               Cleaned up parameter checking
-#               0.0.9 Mon  9 Sep 2013 10:12:00 EST
-#               Added fix/install and uninstall capability
-#               0.1.0 Mon  9 Sep 2013 11:38:12 EST
-#               Updated documentation
-#               0.1.1 Mon  9 Sep 2013 17:04:26 EST
-#               Updated krb5.conf handling
-#               0.1.2 Mon  9 Sep 2013 18:04:26 EST
-#               Fixed bug with updating files
-#               0.1.3 Mon  9 Sep 2013 18:40:39 EST
-#               Small code cleanup
-#               0.1.4 Mon  9 Sep 2013 18:49:43 EST
-#               Fixed bugs
-#               0.1.5 Mon  9 Sep 2013 23:23:08 EST
-#               More bug fixes
-#               0.1.6 Tue 10 Sep 2013 13:49:23 EST
-#               Got rid of hashes
-#               0.1.7 Tue 10 Sep 2013 14:07:31 EST
-#               Added check to make sure Organisation details are set
-#               0.1.8 Tue 10 Sep 2013 15:59:58 EST
-#               Fixed bug with Organisation check
+use strict;
+use Getopt::Std;
 
-my $script_name=$0;
-my $script_version=`cat $script_name | grep '^# Version' |awk '{print \$3}'`; 
-my %option=();
+my $script_name    = $0;
+my $script_version = `cat $script_name | grep '^# Version' |awk '{print \$3}'`;
+my %option  = ();
+my $options = "Vchsfiu";
 my $os_name;
 my @pam_entries;
 my $krb5_dir;
@@ -64,7 +29,7 @@ my $kadm5_keytab_file;
 my $kadm5_acl_file;
 my $default_realm;
 my $kdc;
-my $org_name                = "Blah Australia";
+my $org_name                = "Blah";
 my $ldap_user_search_base   = "";
 my $ldap_group_search_base  = "";
 my $default_realm           = "BLAH.COM";
@@ -79,12 +44,11 @@ my $os_rel;
 my @krb5_conf_entries;
 my @kdc_conf_entries;
 my @sssd_conf_entries;
-my $options="Vchsfiu";
 
 get_host_info();
 
-if ($os_name=~/SunOS/) {
-  $pam_file="/etc/pam.conf";
+if ($os_name =~ /SunOS/) {
+  $pam_file = "/etc/pam.conf";
   # Create an array of correct settings for PAM
   @pam_entries = (
     "",
@@ -109,9 +73,9 @@ if ($os_name=~/SunOS/) {
   );
 }
 
-if ($os_name=~/Linux/) {
-  $pam_file="/etc/pam.d/system-auth-ac";
-  if ($os_rel=~/^5/) {
+if ($os_name =~ /Linux/) {
+  $pam_file = "/etc/pam.d/system-auth-ac";
+  if ($os_rel =~ /^5/) {
     # Create an array of correct settings for PAM
     @pam_entries = (
       "",
@@ -139,7 +103,7 @@ if ($os_name=~/Linux/) {
       ""
    );
   }
-  if ($os_rel=~/^6/) {
+  if ($os_rel =~ /^6/) {
     # Create an array of correct settings for PAM
     @pam_entries = (
       "",
@@ -170,7 +134,7 @@ if ($os_name=~/Linux/) {
       ""
     );
   }
-  if ($os_rel=~/^6/) {
+  if ($os_rel =~ /^6/) {
     @sssd_conf_entries = (
       "",
       "[sssd]",
@@ -232,10 +196,10 @@ if ($os_name=~/Linux/) {
     "$default_realm",
     "$default_realm"."[[:space:]]*$kdc:88",
     "$default_realm"."[[:space:]]*$kdc:749 admin server"
-  ); 
+  );
 }
 
-if ($os_name=~/Linux/) {
+if ($os_name =~ /Linux/) {
   # Create an array of entries for krb5.conf
   @krb5_conf_entries = (
     "",
@@ -263,7 +227,7 @@ if ($os_name=~/Linux/) {
     "kdc = $default_realm"
   );
 }
-if ($os_name=~/SunOS/) {
+if ($os_name =~ /SunOS/) {
   # Create an array of entries for krb5.conf
   @krb5_conf_entries = (
     "",
@@ -316,8 +280,8 @@ if ($option{'h'}) {
 
 # Check whether Organisation details are set
 
-if ((!$option{'h'})&&(!$option{'V'})) {
-  if ($org_name=~/Blah/) {
+if ((!$option{'h'}) && (!$option{'V'})) {
+  if ($org_name =~ /Blah/) {
     print "Set the Organisation details and rerun script\n";
     exit;
   }
@@ -337,7 +301,7 @@ if ($option{'V'}) {
 
 # Run check
 
-if (($option{'c'})||($option{'f'})||($option{'i'})||($option{'u'})) {
+if (($option{'c'}) || ($option{'f'}) || ($option{'i'}) || ($option{'u'})) {
   if ($option{'i'}) {
     $option{'f'}=1;
   }
@@ -350,7 +314,7 @@ if (($option{'c'})||($option{'f'})||($option{'i'})||($option{'u'})) {
 
 sub print_usage {
   print "\n";
-  print "Usage: $script_name -$options\n";
+  print "Usage: $script_name -[$options]\n";
   print "\n";
   print "-V: Print version information\n";
   print "-h: Print help\n";
@@ -366,10 +330,10 @@ sub print_usage {
 # Subroutine to get host information
 
 sub get_host_info {
-  $os_name=`uname`;
+  $os_name = `uname`;
   chomp($os_name);
-  if ($os_name=~/Linux/) {
-    $os_rel=`lsb_release -r |awk '{print \$2}'`;
+  if ($os_name =~ /Linux/) {
+    $os_rel = `lsb_release -r |awk '{print \$2}'`;
     chomp($os_rel);
   }
   return;
@@ -378,7 +342,7 @@ sub get_host_info {
 # Subrouting to check a file exists
 
 sub check_file_exists {
-  my $filename=$_[0];
+  my $filename = $_[0];
   if (! -f "$filename") {
     print "Warning: File \"$filename\" does not exist\n";
     return("");
@@ -392,7 +356,7 @@ sub check_file_exists {
 # Subroutine to check a directory exists
 
 sub check_dir_exists {
-  my $dirname=$_[0];
+  my $dirname = $_[0];
   if (! -d "$dirname") {
     print "Warning: Directory \"$dirname\" does not exist\n";
     return("");
@@ -406,24 +370,24 @@ sub check_dir_exists {
 # Subroutine to check entries for a config file
 
 sub check_file_entries {
-  my $check_file=$_[0];
+  my $check_file = $_[0];
   my @file_entries;
-  my $entry; 
+  my $entry;
   my $info;
   my $line;
-  my $correct=1;
+  my $correct = 1;
   if (-f "$check_file") {
     # check entries in the file against the correct values in the array
-    @file_entries=`cat $check_file |grep -v '^#'`;
+    @file_entries = `cat $check_file |grep -v '^#'`;
     foreach $entry (@conf_file_entries) {
-      $info=$entry;
-      $info=~s/\[\[\:space\:\]\]\*/ /g;
-      if ($info!~/^$/) {
+      $info = $entry;
+      $info =~ s/\[\[\:space\:\]\]\*/ /g;
+      if ($info !~ /^$/) {
         if (grep /$entry/, @file_entries) {
           print "File \"$check_file\" contains \"$info\"\n";
         }
         else {
-          $correct=0;
+          $correct = 0;
           print "Warning: File \"$check_file\" does not contain \"$info\"\n";
         }
       }
@@ -440,20 +404,20 @@ sub check_file_entries {
         print "Backing up $check_file to $check_file.pread\n";
         system("cp $check_file $check_file.pread");
       }
-      if ($os_name=~/Linux/) {
+      if ($os_name =~ /Linux/) {
         print "Creating $check_file\n";
         system("cat /dev/null > $check_file");
       }
       else {
-        if ($check_file=~/$pam_file/) {
+        if ($check_file =~ /$pam_file/) {
           system("cat $check_file.pread |grep -v '^other' > $check_file");
         }
         print "Updating $check_file\n";
       }
       open(OUTPUT,">>",$check_file);
       foreach $entry (@conf_file_entries) {
-        $line=$entry;
-        $line=~s/\[\[\:space\:\]\]\*/\t/g;
+        $line = $entry;
+        $line =~ s/\[\[\:space\:\]\]\*/\t/g;
         print OUTPUT "$line\n";
       }
       close(OUTPUT);
@@ -479,15 +443,15 @@ sub check_krb5_services {
   my $status;
   foreach $service (@krb5_services) {
     ($service,$correct_status)=split(",",$service);
-    if ($os_name=~/SunOS/) {
-      $status=`svcs -l $service |grep '^state ' |awk '{print \$2}'`;
+    if ($os_name =~ /SunOS/) {
+      $status = `svcs -l $service |grep '^state ' |awk '{print \$2}'`;
     }
-    if ($status=~/$correct_status/) {
+    if ($status =~ /$correct_status/) {
       # If we are uninstalling stop service
       print "Service $service is \"$correct_status\"\n";
       if ($option{'u'}) {
         print "Disabling $service\n";
-        if ($os_name=~/SunOS/) {
+        if ($os_name =~ /SunOS/) {
           system("svcadm disable $service");
         }
         else {
@@ -500,7 +464,7 @@ sub check_krb5_services {
       # If we are fixing or installing start service
       print "Warning: Service \"$service\" is not \"$correct_status\"\n";
       if ($option{'f'}) {
-        if ($os_name=~/SunOS/) {
+        if ($os_name =~ /SunOS/) {
           system("svcadm enable $service");
         }
         else {
@@ -516,20 +480,20 @@ sub check_krb5_services {
 # Subroutine to check file permissions and ownerships
 
 sub check_file_perms {
-  my $check_file=$_[0];
-  my $check_user=$_[1];
-  my $check_group=$_[2];
-  my $check_perm=$_[3];
+  my $check_file  = $_[0];
+  my $check_user  = $_[1];
+  my $check_group = $_[2];
+  my $check_perm  = $_[3];
   my $file_mode;
   my $file_user;
   my $file_group;
-  $check_file=check_file_exists($check_file);
-  if ((-f "$check_file")||(-d "$check_file")) {
-    $file_mode=(stat($check_file))[2];
-    $file_mode=sprintf("%04o",$file_mode & 07777);
-    $file_user=(stat($check_file))[4];
-    $file_group=(stat($check_file))[5];
-    $file_user=getpwuid($file_user);
+  $check_file = check_file_exists($check_file);
+  if ((-f "$check_file") || (-d "$check_file")) {
+    $file_mode  = (stat($check_file))[2];
+    $file_mode  = sprintf("%04o",$file_mode & 07777);
+    $file_user  = (stat($check_file))[4];
+    $file_group = (stat($check_file))[5];
+    $file_user  = getpwuid($file_user);
     if ($file_mode != $check_perm) {
       print "Warning: Permissions on \"$check_file\" are not \"$check_perm\"\n";
       print "Warning: Permissions nf $check_file are not $check_perm\n";
@@ -568,7 +532,7 @@ sub check_file_perms {
 # Subroutine to check we've got tickets
 
 sub check_klist {
-  if ($os_name=~/SunOS/) {
+  if ($os_name =~ /SunOS/) {
     system("klist -k");
   }
   else {
@@ -580,18 +544,18 @@ sub check_klist {
 # Main subroutine
 
 sub adi_check {
-  @conf_file_entries=@pam_entries;
+  @conf_file_entries = @pam_entries;
   check_file_entries($pam_file);
-  @conf_file_entries=@krb5_conf_entries;
+  @conf_file_entries = @krb5_conf_entries;
   check_file_entries($krb5_conf_file);
-  if ($os_name=~/Linux/) {
-    if ($os_rel=~/^6/) {
-      @conf_file_entries=@sssd_conf_entries;
-      check_file_entries($sssd_file);  
+  if ($os_name =~ /Linux/) {
+    if ($os_rel =~ /^6/) {
+      @conf_file_entries = @sssd_conf_entries;
+      check_file_entries($sssd_file);
     }
   }
   if ($option{'s'}) {
-    @conf_file_entries=@kdc_conf_entries;
+    @conf_file_entries = @kdc_conf_entries;
     check_file_entries($kdc_conf_file);
   }
   check_krb5_services();
