@@ -1,5 +1,9 @@
 ![alt tag](https://raw.githubusercontent.com/lateralblast/ait/master/ait.jpg)
 
+> An ait or eyot (pronounced /eɪt/, i.e., the same as 'eight') is a small island.
+<br>
+> It is especially used to refer to river islands found on the River Thames and its tributaries in England.
+
 AIT
 ===
 
